@@ -1,0 +1,15 @@
+export const Care = {
+  background: '#131A26',
+  surface: '#1C2433',
+  surfaceMuted: '#182030',
+  border: '#232C3D',
+  text: '#FFFFFF',
+  textSecondary: '#8A93A6',
+  textMuted: '#5C6577',
+  primary: '#2F6BFF',
+  primaryLight: '#4C86FF',
+  primaryDark: '#1F4FD8',
+  emergency: '#E53935',
+  afternoon: '#F59E42',
+  evening: '#7C8CFF',
+} as const;

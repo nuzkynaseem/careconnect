@@ -1,32 +1,73 @@
-import { NativeTabs } from 'expo-router/native-tabs';
-import { useColorScheme } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Tabs } from 'expo-router/js-tabs';
+import { type ColorValue, StyleSheet, View } from 'react-native';
 
-import { Colors } from '@/constants/theme';
+import { Care } from '@/constants/care-theme';
 
-export default function AppTabs() {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
+type IconName = keyof typeof Ionicons.glyphMap;
 
+function TabIcon({ name, color, focused }: { name: IconName; color: ColorValue; focused: boolean }) {
   return (
-    <NativeTabs
-      backgroundColor={colors.background}
-      indicatorColor={colors.backgroundElement}
-      labelStyle={{ selected: { color: colors.text } }}>
-      <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/home.png')}
-          renderingMode="template"
-        />
-      </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger name="explore">
-        <NativeTabs.Trigger.Label>Explore</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/explore.png')}
-          renderingMode="template"
-        />
-      </NativeTabs.Trigger>
-    </NativeTabs>
+    <View style={[styles.iconPill, focused && styles.iconPillActive]}>
+      <Ionicons name={name} size={20} color={color as string} />
+    </View>
   );
 }
+
+const tabs: { name: string; title: string; icon: IconName; activeIcon: IconName }[] = [
+  { name: 'index', title: 'Home', icon: 'home-outline', activeIcon: 'home' },
+  { name: 'care-team', title: 'Care Team', icon: 'people-outline', activeIcon: 'people' },
+  { name: 'calendar', title: 'Calendar', icon: 'calendar-outline', activeIcon: 'calendar' },
+  { name: 'profile', title: 'Profile', icon: 'person-outline', activeIcon: 'person' },
+];
+
+export default function AppTabs() {
+  return (
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: Care.primaryLight,
+        tabBarInactiveTintColor: Care.textSecondary,
+        tabBarStyle: styles.tabBar,
+        tabBarLabelStyle: styles.label,
+        sceneStyle: { backgroundColor: Care.background },
+      }}>
+      {tabs.map((tab) => (
+        <Tabs.Screen
+          key={tab.name}
+          name={tab.name}
+          options={{
+            title: tab.title,
+            tabBarIcon: ({ color, focused }) => (
+              <TabIcon name={focused ? tab.activeIcon : tab.icon} color={color} focused={focused} />
+            ),
+          }}
+        />
+      ))}
+    </Tabs>
+  );
+}
+
+const styles = StyleSheet.create({
+  tabBar: {
+    backgroundColor: Care.surfaceMuted,
+    borderTopColor: Care.border,
+    height: 72,
+    paddingTop: 8,
+  },
+  label: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  iconPill: {
+    width: 48,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconPillActive: {
+    backgroundColor: 'rgba(47, 107, 255, 0.18)',
+  },
+});

@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "care-connect-tmp",
-    "slug": "care-connect-tmp",
+    "name": "Care Connect",
+    "slug": "care-connect",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "careconnecttmp",
-    "userInterfaceStyle": "automatic",
+    "scheme": "careconnect",
+    "userInterfaceStyle": "dark",
     "ios": {
       "icon": "./assets/expo.icon"
     },
