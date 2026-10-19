@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router/js-tabs';
 import { type ColorValue, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Care } from '@/constants/care-theme';
 
@@ -22,13 +23,14 @@ const tabs: { name: string; title: string; icon: IconName; activeIcon: IconName 
 ];
 
 export default function AppTabs() {
+  const insets = useSafeAreaInsets();
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: Care.primaryLight,
         tabBarInactiveTintColor: Care.textSecondary,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [styles.tabBar, { height: 64 + insets.bottom, paddingBottom: insets.bottom }],
         tabBarLabelStyle: styles.label,
         sceneStyle: { backgroundColor: Care.background },
       }}>
@@ -52,7 +54,6 @@ const styles = StyleSheet.create({
   tabBar: {
     backgroundColor: Care.surfaceMuted,
     borderTopColor: Care.border,
-    height: 72,
     paddingTop: 8,
   },
   label: {

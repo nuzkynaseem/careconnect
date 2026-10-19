@@ -1,13 +1,15 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useMemo, useState } from 'react';
+import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Care } from '@/constants/care-theme';
+import { useDoseStatus, type DoseStatus } from '@/context/dose-status';
+import { useInbox } from '@/context/inbox';
+import { useSettings } from '@/context/settings';
 import { routines, type Medication, type Routine } from '@/data/medications';
-
-const PATIENT_NAME = 'Arthur';
+import { patient } from '@/data/people';
 
 function getGreeting(date: Date) {
   const hour = date.getHours();
@@ -30,25 +32,19 @@ const routineIcons: Record<Routine['icon'], keyof typeof MaterialCommunityIcons.
 
 export default function HomeScreen() {
   const now = new Date();
-  const [taken, setTaken] = useState<Set<string>>(new Set());
+  const { statuses, markTaken, reset } = useDoseStatus();
+  const { unread } = useInbox();
+  const { sosEnabled } = useSettings();
 
   const [current, ...upNext] = routines;
   const totalMeds = routines.reduce((sum, r) => sum + r.medications.length, 0);
-  const progress = useMemo(
-    () => (totalMeds === 0 ? 0 : Math.round((taken.size / totalMeds) * 100)),
-    [taken, totalMeds],
+  const takenCount = Object.values(statuses).filter((s) => s.kind === 'taken').length;
+  const progress = totalMeds === 0 ? 0 : Math.round((takenCount / totalMeds) * 100);
+  const routineDone = current.medications.every(
+    (m) => statuses[m.id]?.kind === 'taken' || statuses[m.id]?.kind === 'skipped',
   );
 
-  const toggle = (id: string) =>
-    setTaken((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-
-  const startRoutine = () =>
-    setTaken((prev) => new Set([...prev, ...current.medications.map((m) => m.id)]));
+  const toggle = (id: string) => (statuses[id]?.kind === 'taken' ? reset(id) : markTaken(id));
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -57,11 +53,14 @@ export default function HomeScreen() {
           <View>
             <Text style={styles.date}>{formatDate(now)}</Text>
             <Text style={styles.greeting}>{getGreeting(now)}</Text>
-            <Text style={[styles.greeting, styles.name]}>{PATIENT_NAME}</Text>
+            <Text style={[styles.greeting, styles.name]}>{patient.firstName}</Text>
           </View>
-          <Pressable style={styles.inboxButton} accessibilityLabel="Messages">
+          <Pressable
+            style={styles.inboxButton}
+            accessibilityLabel={`Inbox, ${unread.length} unread`}
+            onPress={() => router.push('/inbox')}>
             <Ionicons name="mail-outline" size={22} color={Care.text} />
-            <View style={styles.badge} />
+            {unread.length > 0 && <View style={styles.badge} />}
           </Pressable>
         </View>
 
@@ -101,47 +100,76 @@ export default function HomeScreen() {
             <MedicationRow
               key={med.id}
               med={med}
-              taken={taken.has(med.id)}
+              status={statuses[med.id]}
+              onOpen={() =>
+                router.push({ pathname: '/routine/[id]', params: { id: current.id, med: med.id } })
+              }
               onToggle={() => toggle(med.id)}
             />
           ))}
 
           <Pressable
             style={({ pressed }) => [styles.startButton, pressed && { opacity: 0.85 }]}
-            onPress={startRoutine}>
-            <Ionicons name="play-circle-outline" size={20} color={Care.primaryDark} />
-            <Text style={styles.startButtonText}>Start Routine</Text>
+            onPress={() => router.push({ pathname: '/routine/[id]', params: { id: current.id } })}>
+            <Ionicons
+              name={routineDone ? 'checkmark-circle-outline' : 'play-circle-outline'}
+              size={20}
+              color={Care.primaryDark}
+            />
+            <Text style={styles.startButtonText}>
+              {routineDone ? 'Routine Complete' : 'Start Routine'}
+            </Text>
           </Pressable>
         </LinearGradient>
 
         <Text style={[styles.sectionTitle, styles.upNextTitle]}>Up Next</Text>
 
         {upNext.map((routine, index) => (
-          <UpNextCard key={routine.id} routine={routine} dimmed={index > 0} />
+          <UpNextCard
+            key={routine.id}
+            routine={routine}
+            statuses={statuses}
+            dimmed={index > 0}
+          />
         ))}
       </ScrollView>
 
-      <Pressable
-        style={({ pressed }) => [styles.emergency, pressed && { opacity: 0.85 }]}
-        accessibilityLabel="Emergency">
-        <MaterialCommunityIcons name="alarm-light-outline" size={20} color={Care.text} />
-        <Text style={styles.emergencyText}>Emergency</Text>
-      </Pressable>
+      {sosEnabled && (
+        <Pressable
+          style={({ pressed }) => [styles.emergency, pressed && { opacity: 0.85 }]}
+          onPress={() => router.push('/emergency')}
+          accessibilityLabel="Emergency">
+          <MaterialCommunityIcons name="alarm-light-outline" size={20} color={Care.text} />
+          <Text style={styles.emergencyText}>Emergency</Text>
+        </Pressable>
+      )}
     </SafeAreaView>
   );
 }
 
+function statusLabel(status: DoseStatus | undefined) {
+  if (!status) return null;
+  if (status.kind === 'taken') return 'Taken';
+  if (status.kind === 'skipped') return 'Skipped';
+  const time = status.until.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return `Snoozed until ${time}`;
+}
+
 function MedicationRow({
   med,
-  taken,
+  status,
+  onOpen,
   onToggle,
 }: {
   med: Medication;
-  taken: boolean;
+  status: DoseStatus | undefined;
+  onOpen: () => void;
   onToggle: () => void;
 }) {
+  const taken = status?.kind === 'taken';
+  const label = statusLabel(status);
   return (
-    <Pressable style={styles.medRow} onPress={onToggle}>
+    <Pressable style={styles.medRow} onPress={onOpen}>
       <View style={styles.medIcon}>
         <MaterialCommunityIcons
           name={med.icon === 'pill' ? 'pill' : 'water-outline'}
@@ -154,16 +182,30 @@ function MedicationRow({
         <Text style={styles.medDetail}>
           {med.dose}
           {med.instructions ? ` • ${med.instructions}` : ''}
+          {label ? ` • ${label}` : ''}
         </Text>
       </View>
-      <View style={[styles.checkbox, taken && styles.checkboxChecked]}>
+      <Pressable
+        onPress={onToggle}
+        hitSlop={10}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: taken }}
+        style={[styles.checkbox, taken && styles.checkboxChecked]}>
         {taken && <Ionicons name="checkmark" size={16} color={Care.primaryDark} />}
-      </View>
+      </Pressable>
     </Pressable>
   );
 }
 
-function UpNextCard({ routine, dimmed }: { routine: Routine; dimmed: boolean }) {
+function UpNextCard({
+  routine,
+  statuses,
+  dimmed,
+}: {
+  routine: Routine;
+  statuses: Record<string, DoseStatus>;
+  dimmed: boolean;
+}) {
   const accent = routine.icon === 'moon' ? Care.evening : Care.afternoon;
   const count = routine.medications.length;
   return (
@@ -184,7 +226,10 @@ function UpNextCard({ routine, dimmed }: { routine: Routine; dimmed: boolean }) 
         routine.medications.map((med) => (
           <View key={med.id} style={styles.upNextMed}>
             <Text style={styles.upNextMedName}>{med.name}</Text>
-            <Text style={styles.upNextMedDose}>{med.dose}</Text>
+            <Text style={styles.upNextMedDose}>
+              {med.dose}
+              {statuses[med.id] ? ` • ${statusLabel(statuses[med.id])}` : ''}
+            </Text>
           </View>
         ))}
     </View>
